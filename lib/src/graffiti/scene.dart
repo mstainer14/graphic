@@ -27,7 +27,7 @@ class MarkScene {
           ? _controller!
           : CurvedAnimation(parent: _controller!, curve: transition!.curve!);
       animation.addListener(() {
-        if (_animateElements) {
+        if (_animateElements && !_hasAnimated) {
           _elements = [];
           for (var i = 0; i < _endElements!.length; i++) {
             _elements!.add(
@@ -35,7 +35,7 @@ class MarkScene {
           }
         }
 
-        if (_animateClip) {
+        if (_animateClip && !_hasAnimated) {
           _clip = _endClip!.lerpFrom(_startClip!, animation.value);
         }
 
@@ -50,6 +50,7 @@ class MarkScene {
             _clip = _currentClip;
           }
 
+          _hasAnimated = true;
           repaint();
         }
       });
@@ -128,6 +129,8 @@ class MarkScene {
   /// Whether to animate the clip.
   late bool _animateClip;
 
+  late bool _hasAnimated;
+
   /// Whether there are elements to paint in current cycle.
   ///
   /// This is for complemention elements in animation.
@@ -141,6 +144,7 @@ class MarkScene {
         elements != null &&
         _currentElements!.length == elements.length;
     _animateClip = _controller != null && _currentClip != null && clip != null;
+    _hasAnimated = false;
 
     _preElements = _currentElements;
     _currentElements = elements;
@@ -186,6 +190,8 @@ class MarkScene {
       // Multiple setState in one sync circle will be merged.
       repaint();
     }
+
+    repaint();
   }
 
   /// Paints this scene.

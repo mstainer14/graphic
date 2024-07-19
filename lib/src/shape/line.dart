@@ -127,3 +127,110 @@ class BasicLineShape extends LineShape {
           List<Attributes> group, CoordConv coord, Offset origin) =>
       drawLineLabels(group, coord, origin);
 }
+
+class MultiColoredLineShape extends LineShape {
+  /// Creates a basic line shape.
+  MultiColoredLineShape({
+    this.smooth = false,
+    this.loop = false,
+    this.dash,
+  });
+
+  /// Whether this line is smooth.
+  final bool smooth;
+
+  /// Whether to connect the last point to the first point.
+  ///
+  /// It is usefull in the polar coordinate.
+  final bool loop;
+
+  /// The circular array of dash offsets and lengths.
+  ///
+  /// For example, the array `[5, 10]` would result in dashes 5 pixels long
+  /// followed by blank spaces 10 pixels long.  The array `[5, 10, 5]` would
+  /// result in a 5 pixel dash, a 10 pixel gap, a 5 pixel dash, a 5 pixel gap,
+  /// a 10 pixel dash, etc.
+  final List<double>? dash;
+
+  @override
+  bool equalTo(Object other) =>
+      other is MultiColoredLineShape &&
+      smooth == other.smooth &&
+      loop == other.loop &&
+      deepCollectionEquals(dash, other.dash);
+
+  @override
+  List<MarkElement> drawGroupPrimitives(
+    List<Attributes> group,
+    CoordConv coord,
+    Offset origin,
+  ) {
+    assert(!(coord is PolarCoordConv && coord.transposed));
+
+    final contours = <List<Offset>>[];
+    final List<Color?> colors = [];
+
+    var currentContour = <Offset>[];
+    for (var item in group) {
+      assert(item.shape is MultiColoredLineShape);
+
+      if (item.position.last.dy.isFinite) {
+        final point = coord.convert(item.position.last);
+        currentContour.add(point);
+        colors.add(item.color);
+      } else if (currentContour.isNotEmpty) {
+        contours.add(currentContour);
+        currentContour = [];
+      }
+    }
+    if (currentContour.isNotEmpty) {
+      contours.add(currentContour);
+    }
+
+    if (loop &&
+        group.first.position.last.dy.isFinite &&
+        group.last.position.last.dy.isFinite) {
+      // Because lines may be broken by NaN, don't loop by Path.close.
+      contours.last.add(contours.first.first);
+    }
+
+    final primitives = <MarkElement>[];
+
+    final represent = group.first;
+    final style = getPaintStyle(
+        represent, true, represent.size ?? defaultSize, coord.region, dash);
+
+    for (var contour in contours) {
+      if (smooth) {
+        primitives.add(SplineElement(
+            start: contour.first,
+            cubics: getCubicControls(contour, false, true),
+            style: style));
+      } else {
+        for (int i = 0; i < contour.length - 1; i++) {
+          final style = PaintStyle(
+            strokeColor: colors[i],
+            strokeWidth: represent.size ?? defaultSize,
+            elevation: represent.elevation,
+            gradientBounds: coord.region,
+            dash: dash,
+          );
+
+          primitives.add(
+            PolylineElement(
+              points: [contour[i], contour[i + 1]],
+              style: style,
+            ),
+          );
+        }
+      }
+    }
+
+    return primitives;
+  }
+
+  @override
+  List<MarkElement> drawGroupLabels(
+          List<Attributes> group, CoordConv coord, Offset origin) =>
+      drawLineLabels(group, coord, origin);
+}

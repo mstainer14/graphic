@@ -171,7 +171,8 @@ export 'src/shape/partition.dart' show PartitionShape;
 export 'src/shape/area.dart' show AreaShape, BasicAreaShape;
 export 'src/shape/custom.dart' show CandlestickShape;
 export 'src/shape/interval.dart' show IntervalShape, RectShape, FunnelShape;
-export 'src/shape/line.dart' show LineShape, BasicLineShape;
+export 'src/shape/line.dart'
+    show LineShape, BasicLineShape, MultiColoredLineShape;
 export 'src/shape/point.dart' show PointShape, CircleShape, SquareShape;
 export 'src/shape/polygon.dart' show PolygonShape, HeatmapShape;
 export 'src/shape/util/style.dart' show getPaintStyle;
