@@ -1,3 +1,7 @@
+import 'dart:math';
+
+import 'package:flutter/material.dart';
+
 const basicData = [
   {'genre': 'Sports', 'sold': 275},
   {'genre': 'Strategy', 'sold': 115},
@@ -104,12 +108,42 @@ class TimeSeriesSales {
   TimeSeriesSales(this.time, this.sales);
 }
 
+class ColorTimeSeriesSales {
+  final DateTime time;
+  final int sales;
+  final Color color;
+
+  ColorTimeSeriesSales(this.time, this.sales, this.color);
+}
+
 final timeSeriesSales = [
   TimeSeriesSales(DateTime(2017, 9, 19), 5),
   TimeSeriesSales(DateTime(2017, 9, 26), 25),
   TimeSeriesSales(DateTime(2017, 10, 3), 100),
   TimeSeriesSales(DateTime(2017, 10, 10), 75),
 ];
+
+List<ColorTimeSeriesSales> generateRandomTimeSeriesSales(int count) {
+  final random = Random();
+  final startDate = DateTime(2017, 9, 1); // Starting date
+  Color criticalThresholdColor = Colors.red.shade400;
+  Color normalThresholdColor = Colors.green.shade400;
+  Color lowThresholdColor = Colors.amber.shade600;
+  final colorList = [
+    normalThresholdColor,
+    lowThresholdColor,
+    criticalThresholdColor,
+  ];
+
+  return List.generate(
+    count,
+    (index) {
+      final date = startDate.add(Duration(hours: index));
+      final sales = random.nextInt(10) + 20;
+      return ColorTimeSeriesSales(date, sales, colorList[random.nextInt(3)]);
+    },
+  );
+}
 
 const roseData = [
   {'value': 20, 'name': 'rose 1'},

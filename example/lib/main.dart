@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:graphic_example/pages/multicolored_line.dart';
 
 import 'home.dart';
 import 'pages/bigdata.dart';
@@ -12,6 +13,7 @@ import 'pages/animation.dart';
 
 final routes = {
   '/': (context) => const HomePage(),
+  '/examples/Multicolored': (context) => MultiColorLinePage(),
   '/examples/Interval': (context) => IntervalPage(),
   '/examples/Line,Area,Point': (context) => LineAreaPointPage(),
   '/examples/Polygon,Custom': (context) => PolygonCustomPage(),
