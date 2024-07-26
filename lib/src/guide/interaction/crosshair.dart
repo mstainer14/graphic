@@ -1,6 +1,6 @@
 import 'dart:math';
-import 'dart:ui';
 
+import 'package:flutter/rendering.dart';
 import 'package:graphic/src/graffiti/element/arc.dart';
 import 'package:graphic/src/graffiti/element/line.dart';
 import 'package:graphic/src/graffiti/element/rect.dart';
@@ -30,9 +30,11 @@ class CrosshairGuide {
     this.labelStyles,
     this.labelBackgroundStyles,
     this.showLabel,
+    this.formatter,
     this.followPointer,
     this.layer,
     this.mark,
+    this.expandEdges,
   });
 
   /// The selections this crosshair reacts to.
@@ -61,6 +63,11 @@ class CrosshairGuide {
   /// If null, a default `[false, false]` is set.
   List<bool>? showLabel;
 
+  /// Convert the value to a [String] on the chart.
+  ///
+  /// If null, a default [Scale.format, Scale.format] is used.
+  List<String? Function(dynamic)?>? formatter;
+
   /// Whether the position for each dimension follows the pointer or stick to selected
   /// points.
   ///
@@ -81,6 +88,15 @@ class CrosshairGuide {
   /// If null, the first mark series is set by default.
   int? mark;
 
+  /// Indicates whether the crosshair should expand in each of the four directions (left, top, right, bottom).
+  ///
+  /// This property is applicable only for [RectCoord] and determines if the crosshair should extend
+  /// in the respective directions. The list contains four boolean values corresponding to left, top,
+  /// right, and bottom expansion respectively.
+  ///
+  /// If null, a default `[false, false, false, false]` is set.
+  List<bool>? expandEdges;
+
   @override
   bool operator ==(Object other) =>
       other is CrosshairGuide &&
@@ -91,6 +107,7 @@ class CrosshairGuide {
           labelBackgroundStyles, other.labelBackgroundStyles) &&
       deepCollectionEquals(showLabel, other.showLabel) &&
       deepCollectionEquals(followPointer, other.followPointer) &&
+      deepCollectionEquals(expandEdges, other.expandEdges) &&
       layer == other.layer &&
       mark == other.mark;
 }
@@ -116,8 +133,12 @@ class CrosshairRenderOp extends Render {
     final labelBackgroundStyles =
         params['labelBackgroundStyles'] as List<PaintStyle?>;
     final showLabel = params['showLabel'] as List<bool>;
+    final formatter = params['formatter'] as List<String? Function(dynamic)?>;
     final followPointer = params['followPointer'] as List<bool>;
     final scales = params['scales'] as Map<String, ScaleConv>;
+    final size = params['size'] as Size;
+    final padding = params['padding'] as EdgeInsets Function(Size);
+    final expandEdges = params['expandEdges'] as List<bool>;
 
     // The main indicator is selected, if no selector, takes selectedPoint for pointer.
     final name = singleIntersection(selected?.keys, selections);
@@ -181,16 +202,25 @@ class CrosshairRenderOp extends Render {
       if (canvasStyleX != null) {
         final canvasCrossX =
             max(min(canvasCross.dx, region.right), region.left);
+
+        double startY = region.top;
+        double endY = region.bottom;
+        if (expandEdges[1]) startY -= padding(size).top;
+        if (expandEdges[3]) endY += padding(size).bottom;
+
         elements.add(LineElement(
-          start: Offset(canvasCrossX, region.top),
-          end: Offset(canvasCrossX, region.bottom),
+          start: Offset(canvasCrossX, startY),
+          end: Offset(canvasCrossX, endY),
           style: canvasStyleX,
         ));
 
         if (showLabel[0] && !canvasCross.dx.isNaN && labelStyleX != null) {
           final fieldX = coord.transposed ? fields[1] : fields[0];
           final scaleX = scales[fieldX];
-          final text = scaleX?.format(scaleX.invert(cross.dx)) ?? '';
+          final denormalize = scaleX?.denormalize(cross.dx) ?? -1;
+          final invert = scaleX?.invert(denormalize);
+          final text =
+              formatter[0]?.call(invert) ?? scaleX?.format(invert) ?? '';
           final rect = _getLabelBlock(text: text, style: labelStyleX);
 
           double posX = canvasCrossX;
@@ -221,16 +251,25 @@ class CrosshairRenderOp extends Render {
       if (canvasStyleY != null) {
         final canvasCrossY =
             max(min(canvasCross.dy, region.bottom), region.top);
+
+        double startX = region.left;
+        double endX = region.right;
+        if (expandEdges[0]) startX -= padding(size).left;
+        if (expandEdges[2]) endX += padding(size).right;
+
         elements.add(LineElement(
-          start: Offset(region.left, canvasCrossY),
-          end: Offset(region.right, canvasCrossY),
+          start: Offset(startX, canvasCrossY),
+          end: Offset(endX, canvasCrossY),
           style: canvasStyleY,
         ));
 
         if (showLabel[1] && !canvasCross.dy.isNaN && labelStyleY != null) {
           final fieldY = coord.transposed ? fields[0] : fields[1];
           final scaleY = scales[fieldY];
-          final text = scaleY?.format(scaleY.invert(cross.dy)) ?? '';
+          final denormalize = scaleY?.denormalize(cross.dy) ?? -1;
+          final invert = scaleY?.invert(denormalize);
+          final text =
+              formatter[1]?.call(invert) ?? scaleY?.format(invert) ?? '';
           final rect = _getLabelBlock(text: text, style: labelStyleY);
 
           double posY = canvasCrossY;
@@ -271,7 +310,8 @@ class CrosshairRenderOp extends Render {
         if (showLabel[0] && labelStyleX != null) {
           final fieldX = coord.transposed ? fields[2] : fields[0];
           final scaleX = scales[fieldX];
-          final text = scaleX?.format(tuple[fieldX]) ?? '';
+          final value = tuple[fieldX];
+          final text = formatter[0]?.call(value) ?? scaleX?.format(value) ?? '';
           final diagonal = _getLabelDiagonal(text: text, style: labelStyleX);
 
           final label = LabelElement(
@@ -304,8 +344,10 @@ class CrosshairRenderOp extends Render {
         if (showLabel[1] && labelStyleY != null) {
           final fieldY = coord.transposed ? fields[0] : fields[2];
           final scaleY = scales[fieldY];
-          final value = scaleY?.invert(abstractRadius);
-          final text = scaleY?.format(value) ?? '';
+          final denormalize = scaleY?.denormalize(abstractRadius) ?? 0;
+          final invert = scaleY?.invert(denormalize);
+          final text =
+              formatter[0]?.call(invert) ?? scaleY?.format(value) ?? '';
           final rect = _getLabelBlock(text: text, style: labelStyleY);
 
           final label = LabelElement(

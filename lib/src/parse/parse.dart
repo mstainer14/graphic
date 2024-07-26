@@ -102,10 +102,12 @@ void parse<D>(
 
   final coordSpec = spec.coord ?? RectCoord();
 
+  final regionPadding = spec.padding ??
+      (coordSpec is RectCoord ? _defaultRectPadding : _defaultPolarPadding);
+
   final region = view.add(RegionOp({
     'size': size,
-    'padding': spec.padding ??
-        (coordSpec is RectCoord ? _defaultRectPadding : _defaultPolarPadding),
+    'padding': regionPadding,
   }));
 
   if (coordSpec.color != null) {
@@ -683,8 +685,12 @@ void parse<D>(
             PaintStyle(fillColor: const Color(0xff000000)),
           ],
       'showLabel': showLabel,
+      'formatter': crosshairSpec.formatter ?? [null, null],
       'followPointer': crosshairSpec.followPointer ?? [false, false],
       'scales': scales,
+      'size': size,
+      'padding': regionPadding,
+      'expandEdges': crosshairSpec.expandEdges ?? [false, false, false, false],
     }, crosshairScene, view));
   }
 
