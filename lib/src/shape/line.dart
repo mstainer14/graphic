@@ -172,58 +172,63 @@ class MultiColoredLineShape extends LineShape {
     assert(!(coord is PolarCoordConv && coord.transposed));
 
     final contours = <List<Offset>>[];
-    final List<Color?> colors = [];
+    final colors = <Color?>[];
 
     var currentContour = <Offset>[];
-    for (var item in group) {
+    var currentColors = <Color?>[];
+
+    for (final item in group) {
       assert(item.shape is MultiColoredLineShape);
 
-      if (item.position.last.dy.isFinite) {
-        final point = coord.convert(item.position.last);
-        currentContour.add(point);
-        colors.add(item.color);
+      final y = item.position.last.dy;
+      if (y.isFinite) {
+        currentContour.add(coord.convert(item.position.last));
+        currentColors.add(item.color);
       } else if (currentContour.isNotEmpty) {
         contours.add(currentContour);
-        currentContour = [];
+        colors.addAll(currentColors);
+        currentContour = <Offset>[];
+        currentColors = <Color?>[];
       }
     }
+
     if (currentContour.isNotEmpty) {
       contours.add(currentContour);
+      colors.addAll(currentColors);
     }
 
     if (loop &&
         group.first.position.last.dy.isFinite &&
         group.last.position.last.dy.isFinite) {
-      // Because lines may be broken by NaN, don't loop by Path.close.
       contours.last.add(contours.first.first);
+      colors.add(colors.first);
     }
 
     final primitives = <MarkElement>[];
-
     final represent = group.first;
-    final style = getPaintStyle(
+    final defaultStyle = getPaintStyle(
         represent, true, represent.size ?? defaultSize, coord.region, dash);
 
-    for (var contour in contours) {
+    for (var i = 0; i < contours.length; i++) {
+      final contour = contours[i];
       if (smooth) {
         primitives.add(SplineElement(
-            start: contour.first,
-            cubics: getCubicControls(contour, false, true),
-            style: style));
+          start: contour.first,
+          cubics: getCubicControls(contour, false, true),
+          style: defaultStyle,
+        ));
       } else {
-        for (int i = 0; i < contour.length - 1; i++) {
-          final style = PaintStyle(
-            strokeColor: colors[i],
-            strokeWidth: represent.size ?? defaultSize,
-            elevation: represent.elevation,
-            gradientBounds: coord.region,
-            dash: dash,
-          );
-
+        for (int j = 0; j < contour.length - 1; j++) {
           primitives.add(
             PolylineElement(
-              points: [contour[i], contour[i + 1]],
-              style: style,
+              points: [contour[j], contour[j + 1]],
+              style: PaintStyle(
+                strokeColor: colors[i * (contour.length - 1) + j],
+                strokeWidth: represent.size ?? defaultSize,
+                elevation: represent.elevation,
+                gradientBounds: coord.region,
+                dash: dash,
+              ),
             ),
           );
         }
