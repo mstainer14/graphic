@@ -178,13 +178,13 @@ class MultiColoredLineShape extends LineShape {
     List<Offset> currentBatch = [];
     Color? currentColor;
 
-    void addBatchToPath() {
+    void addBatchToPath(bool isLastBatch) {
       if (currentBatch.length < 2) return;
 
       if (smooth) {
         primitives.add(SplineElement(
           start: currentBatch.first,
-          cubics: getCubicControls(currentBatch, false, true),
+          cubics: getCubicControls(currentBatch, false, isLastBatch),
           style: PaintStyle(
             strokeColor: currentColor,
             strokeWidth: defaultSize,
@@ -216,21 +216,31 @@ class MultiColoredLineShape extends LineShape {
         final point = coord.convert(item.position.last);
 
         if (currentColor != item.color) {
-          addBatchToPath();
-          currentBatch = [point];
+          if (currentBatch.isNotEmpty) {
+            currentBatch
+                .add(point); // Add this point to complete the previous segment
+            addBatchToPath(false);
+            currentBatch = [point]; // Start new batch with this point
+          } else {
+            currentBatch.add(point);
+          }
           currentColor = item.color;
         } else {
           currentBatch.add(point);
         }
       } else {
-        addBatchToPath();
+        if (currentBatch.isNotEmpty) {
+          addBatchToPath(true);
+        }
         currentBatch = [];
         currentColor = null;
       }
     }
 
     // Add any remaining points
-    addBatchToPath();
+    if (currentBatch.isNotEmpty) {
+      addBatchToPath(true);
+    }
 
     // Handle looping if necessary
     if (loop &&
