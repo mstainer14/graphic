@@ -171,68 +171,82 @@ class MultiColoredLineShape extends LineShape {
   ) {
     assert(!(coord is PolarCoordConv && coord.transposed));
 
-    final contours = <List<Offset>>[];
-    final colors = <Color?>[];
+    final primitives = <MarkElement>[];
+    final represent = group.first;
+    final defaultSize = represent.size ?? this.defaultSize;
 
-    var currentContour = <Offset>[];
-    var currentColors = <Color?>[];
+    List<Offset> currentBatch = [];
+    Color? currentColor;
 
-    for (final item in group) {
+    void addBatchToPath() {
+      if (currentBatch.length < 2) return;
+
+      if (smooth) {
+        primitives.add(SplineElement(
+          start: currentBatch.first,
+          cubics: getCubicControls(currentBatch, false, true),
+          style: PaintStyle(
+            strokeColor: currentColor,
+            strokeWidth: defaultSize,
+            elevation: represent.elevation,
+            gradientBounds: coord.region,
+            dash: dash,
+          ),
+        ));
+      } else {
+        primitives.add(PolylineElement(
+          points: currentBatch,
+          style: PaintStyle(
+            strokeColor: currentColor,
+            strokeWidth: defaultSize,
+            elevation: represent.elevation,
+            gradientBounds: coord.region,
+            dash: dash,
+          ),
+        ));
+      }
+    }
+
+    for (int i = 0; i < group.length; i++) {
+      final item = group[i];
       assert(item.shape is MultiColoredLineShape);
 
       final y = item.position.last.dy;
       if (y.isFinite) {
-        currentContour.add(coord.convert(item.position.last));
-        currentColors.add(item.color);
-      } else if (currentContour.isNotEmpty) {
-        contours.add(currentContour);
-        colors.addAll(currentColors);
-        currentContour = <Offset>[];
-        currentColors = <Color?>[];
+        final point = coord.convert(item.position.last);
+
+        if (currentColor != item.color) {
+          addBatchToPath();
+          currentBatch = [point];
+          currentColor = item.color;
+        } else {
+          currentBatch.add(point);
+        }
+      } else {
+        addBatchToPath();
+        currentBatch = [];
+        currentColor = null;
       }
     }
 
-    if (currentContour.isNotEmpty) {
-      contours.add(currentContour);
-      colors.addAll(currentColors);
-    }
+    // Add any remaining points
+    addBatchToPath();
 
+    // Handle looping if necessary
     if (loop &&
         group.first.position.last.dy.isFinite &&
         group.last.position.last.dy.isFinite) {
-      contours.last.add(contours.first.first);
-      colors.add(colors.first);
-    }
-
-    final primitives = <MarkElement>[];
-    final represent = group.first;
-    final defaultStyle = getPaintStyle(
-        represent, true, represent.size ?? defaultSize, coord.region, dash);
-
-    for (var i = 0; i < contours.length; i++) {
-      final contour = contours[i];
-      if (smooth) {
-        primitives.add(SplineElement(
-          start: contour.first,
-          cubics: getCubicControls(contour, false, true),
-          style: defaultStyle,
-        ));
-      } else {
-        for (int j = 0; j < contour.length - 1; j++) {
-          primitives.add(
-            PolylineElement(
-              points: [contour[j], contour[j + 1]],
-              style: PaintStyle(
-                strokeColor: colors[i * (contour.length - 1) + j],
-                strokeWidth: represent.size ?? defaultSize,
-                elevation: represent.elevation,
-                gradientBounds: coord.region,
-                dash: dash,
-              ),
-            ),
-          );
-        }
-      }
+      final firstPoint = coord.convert(group.first.position.last);
+      primitives.add(PolylineElement(
+        points: [currentBatch.last, firstPoint],
+        style: PaintStyle(
+          strokeColor: currentColor,
+          strokeWidth: defaultSize,
+          elevation: represent.elevation,
+          gradientBounds: coord.region,
+          dash: dash,
+        ),
+      ));
     }
 
     return primitives;
