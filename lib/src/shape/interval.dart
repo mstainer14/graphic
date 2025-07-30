@@ -42,6 +42,10 @@ class RectShape extends IntervalShape {
   final bool histogram;
 
   /// The position ratio of the label in the interval.
+  /// 
+  /// It is a normalized value of `[0, 1]`, which 1 means top and 0 means bottom.
+  /// 
+  /// Note for pie chart, the label radius position is controlled by PolarCoord.dimFill, labelPosition will not work.
   final double labelPosition;
 
   /// The border radius of the rectangle or sector.
@@ -300,7 +304,7 @@ class RectShape extends IntervalShape {
               rst.add(_drawSectorLabel(
                 item,
                 coord.convert(Offset(
-                  (item.shape as RectShape).labelPosition,
+                  0, // For pie chart, the label radius position is controlled by PolarCoord.dimFill, labelPosition will not work.
                   (position[1].dy + position[0].dy) / 2,
                 )),
                 coord,
